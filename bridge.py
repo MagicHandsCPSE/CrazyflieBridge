@@ -1,9 +1,4 @@
 #! /usr/bin/env python3
-import logging
-import sys
-import time
-from threading import Event
-
 import cflib.crtp
 from cflib.crazyflie import Crazyflie
 from cflib.crazyflie.syncCrazyflie import SyncCrazyflie
@@ -13,6 +8,7 @@ from cflib.utils import uri_helper
 
 import serial
 import asyncio
+import os
 
 
 URI = uri_helper.uri_from_env(default='radio://0/80/2M/E7E7E7E7E7')
@@ -22,13 +18,21 @@ DEFAULT_HEIGHT = 0.5
 def is_close(reading):
     return reading is None or reading < 0.3  # 30 cm = about 1 foot
 
-queue = asyncio.Queue()
+queue = asyncio.Queue(16)
 
 async def readserial(port):
     try:
         while True:
-            what, where = port.readline().decode("ascii").split("=")
-            await queue.put((what, int(where)))
+            try:
+                what, where = port.readline().decode("ascii").strip().split("=")
+            except ValueError:
+                # raised on empty line
+                continue
+            try:
+                queue.put_nowait((what, int(where)))
+            except asyncio.QueueFull:
+                queue.get_nowait()
+                queue.task_done()
     finally:
         port.close()
 
@@ -73,7 +77,9 @@ async def main(scf, mr, mc):
 
 if __name__ == '__main__':
     cflib.crtp.init_drivers()
-    port = Serial("/dev/ttyAMA0", 115200, timeout=0.1, exclusive=True)
+    # hack to allow me access to serial
+    os.system("sudo chown $USER /dev/serial0")
+    port = serial.Serial("/dev/serial0", 115200, timeout=0.1, exclusive=True)
     with SyncCrazyflie(URI, cf=Crazyflie(rw_cache='./cache')) as scf:
         with Multiranger(scf) as multiranger, MotionCommander(scf) as motion_commander:
             asyncio.main(main(scf, multiranger, motion_commander, port))
