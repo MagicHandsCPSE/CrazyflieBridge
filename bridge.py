@@ -53,10 +53,10 @@ async def fly(scf, mr, mc):
     MAX_VEL = 0.5
     try:
         while True:
-            await asyncio.sleep(0.1)
+            await asyncio.sleep(0)
             gpio.output(STATUS_PIN, True)
             while gpio.input(SWITCH_PIN) == True:
-                await asyncio.sleep(0)
+                await asyncio.sleep(0.1)
                 try:
                     what, where = queue.get_nowait()
                 except asyncio.QueueEmpty:
