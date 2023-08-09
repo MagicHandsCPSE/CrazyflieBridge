@@ -48,13 +48,12 @@ async def readserial(port):
     finally:
         port.close()
 
-
 async def fly(scf, mr, mc):
     vx, vy, vz = 0, 0, 0
     MAX_VEL = 0.5
     try:
         while True:
-            await asyncio.sleep(0)
+            await asyncio.sleep(0.1)
             gpio.output(STATUS_PIN, True)
             while gpio.input(SWITCH_PIN) == True:
                 await asyncio.sleep(0)
