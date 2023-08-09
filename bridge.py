@@ -1,4 +1,8 @@
-#! /usr/bin/env python3
+import sys
+if "idlelib" in sys.modules:
+    print("run in a terminal...")
+    sys.exit(1)
+
 import cflib.crtp
 from cflib.crazyflie import Crazyflie
 from cflib.crazyflie.syncCrazyflie import SyncCrazyflie
@@ -23,6 +27,7 @@ queue = asyncio.Queue(16)
 async def readserial(port):
     try:
         while True:
+            await asyncio.sleep(0)
             try:
                 what, where = port.readline().decode("ascii").strip().split("=")
             except ValueError:
@@ -41,6 +46,7 @@ async def fly(scf, mr, mc):
     MAX_VEL = 0.5
     try:
         while True:
+            await asyncio.sleep(0)
             try:
                 what, where = queue.get_nowait()
             except asyncio.QueueEmpty:
@@ -50,11 +56,11 @@ async def fly(scf, mr, mc):
             queue.task_done()
             match what:
                 case "x":
-                    vx = where * MAX_VEL / 90
+                    vx = where * MAX_VEL / 50
                 case "y":
-                    vy = where * MAX_VEL / 90
+                    vy = where * MAX_VEL / 50
                 case "a":
-                    vz = where * MAX_VEL / 2
+                    vz = where * MAX_VEL
             # Safety guards
             if is_close(mr.front) and vx > 0:
                 vx = 0
@@ -68,12 +74,13 @@ async def fly(scf, mr, mc):
                 vz = 0
             if is_close(mr.down) and vz < 0:
                 vz = 0
+            print(f"moving {vx=} {vy=} {vz=}")
             mc.start_linear_motion(vx, vy, vz)
     finally:
         mc.stop()
 
-async def main(scf, mr, mc):
-    await asyncio.gather(fly(scf, m, mc), readserial(port))
+async def main(scf, mr, mc, port):
+    await asyncio.gather(fly(scf, mr, mc), readserial(port))
 
 if __name__ == '__main__':
     cflib.crtp.init_drivers()
@@ -81,5 +88,9 @@ if __name__ == '__main__':
     os.system("sudo chown $USER /dev/serial0")
     port = serial.Serial("/dev/serial0", 115200, timeout=0.1, exclusive=True)
     with SyncCrazyflie(URI, cf=Crazyflie(rw_cache='./cache')) as scf:
-        with Multiranger(scf) as multiranger, MotionCommander(scf) as motion_commander:
-            asyncio.main(main(scf, multiranger, motion_commander, port))
+        print("SyncCrazyflie ok")
+        with Multiranger(scf) as multiranger:
+            print("Multiranger ok")
+            with MotionCommander(scf, default_height=DEFAULT_HEIGHT) as motion_commander:
+                print("MotionCommander ok")
+                asyncio.run(main(scf, multiranger, motion_commander, port))

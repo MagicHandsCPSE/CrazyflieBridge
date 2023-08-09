@@ -1,4 +1,9 @@
-import serial, os
+import sys
+if "idlelib" in sys.modules:
+    print("run in a terminal...")
+    sys.exit(1)
+
+import serial
 os.system("sudo chown $USER /dev/serial0")
 
 port = serial.Serial("/dev/serial0", 115200, timeout=0.1, exclusive=True)
