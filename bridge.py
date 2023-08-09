@@ -70,19 +70,25 @@ async def fly(scf, mr, mc):
                     case "y":
                         vy = where * MAX_VEL / -50  # Y coordinate is backwards
                     case "a":
-                        vz = where * -MAX_VEL  # Z is down??
+                        vz = where * -MAX_VEL  # Positive Z is down?!?
                 # Safety guards
                 if is_close(mr.front) and vx > 0:
+                    print(" --- obstacle in front")
                     vx = 0
                 if is_close(mr.back) and vx < 0:
+                    print(" --- obstacle in back")
                     vx = 0
                 if is_close(mr.left) and vy > 0:
+                    print(" --- obstacle to left")
                     vy = 0
                 if is_close(mr.right) and vy < 0:
+                    print(" --- obstacle to right")
                     vy = 0
                 if is_close(mr.up) and vz > 0:
+                    print(" --- obstacle above")
                     vz = 0
                 if is_close(mr.down) and vz < 0:
+                    print(" --- obstacle below")
                     vz = 0
                 print(f"moving {vx=} {vy=} {vz=}")
                 mc.start_linear_motion(vx, vy, vz)
@@ -93,7 +99,7 @@ async def fly(scf, mr, mc):
             while gpio.input(SWITCH_PIN) == False:
                 await asyncio.sleep(0.01)
             print("taking off again")
-            mc.take_off()
+            mc.take_off(DEFAULT_HEIGHT)
     finally:
         gpio.output(STATUS_PIN, False)
 
