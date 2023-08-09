@@ -1,4 +1,3 @@
-#! /usr/local/bin/python3
 import sys
 if "idlelib" in sys.modules:
     print("run in a terminal...")
@@ -24,10 +23,13 @@ DEFAULT_HEIGHT = 0.2
 STATUS_PIN = 21
 SWITCH_PIN = 20
 
+
 def is_close(reading):
     return reading is None or reading < 0.3  # 30 cm = about 1 foot
 
+
 queue = asyncio.Queue(16)
+
 
 async def readserial(port):
     try:
@@ -45,6 +47,7 @@ async def readserial(port):
                 queue.task_done()
     finally:
         port.close()
+
 
 async def fly(scf, mr, mc):
     vx, vy, vz = 0, 0, 0
@@ -65,9 +68,9 @@ async def fly(scf, mr, mc):
                     case "x":
                         vx = where * MAX_VEL / 50
                     case "y":
-                        vy = where * MAX_VEL / 50
+                        vy = where * MAX_VEL / -50  # Y coordinate is backwards
                     case "a":
-                        vz = where * MAX_VEL
+                        vz = where * -MAX_VEL  # Z is down??
                 # Safety guards
                 if is_close(mr.front) and vx > 0:
                     vx = 0
@@ -84,15 +87,16 @@ async def fly(scf, mr, mc):
                 print(f"moving {vx=} {vy=} {vz=}")
                 mc.start_linear_motion(vx, vy, vz)
             print("kill switch")
-            gpio.output(STATUS_PIN, False)
             mc.stop()
             mc.land()
+            gpio.output(STATUS_PIN, False)
             while gpio.input(SWITCH_PIN) == False:
-                asyncio.sleep(0.01)
+                await asyncio.sleep(0.01)
             print("taking off again")
             mc.take_off()
     finally:
         gpio.output(STATUS_PIN, False)
+
 
 async def main(scf, mr, mc, port):
     try:
@@ -102,6 +106,7 @@ async def main(scf, mr, mc, port):
         await asyncio.gather(fly(scf, mr, mc), readserial(port))
     finally:
         gpio.cleanup()
+
 
 if __name__ == '__main__':
     cflib.crtp.init_drivers()
