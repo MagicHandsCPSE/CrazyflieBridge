@@ -1,3 +1,4 @@
+#! /usr/local/bin/python3
 import sys
 if "idlelib" in sys.modules:
     print("run in a terminal...")
@@ -14,10 +15,14 @@ import serial
 import asyncio
 import os
 
+import RPi.GPIO as gpio
 
 URI = uri_helper.uri_from_env(default='radio://0/80/2M/E7E7E7E7E7')
 
-DEFAULT_HEIGHT = 0.5
+DEFAULT_HEIGHT = 0.2
+
+STATUS_PIN = 21
+SWITCH_PIN = 20
 
 def is_close(reading):
     return reading is None or reading < 0.3  # 30 cm = about 1 foot
@@ -47,40 +52,56 @@ async def fly(scf, mr, mc):
     try:
         while True:
             await asyncio.sleep(0)
-            try:
-                what, where = queue.get_nowait()
-            except asyncio.QueueEmpty:
-                mc.stop()
-                vx, vy, vz = 0, 0, 0
-                continue
-            queue.task_done()
-            match what:
-                case "x":
-                    vx = where * MAX_VEL / 50
-                case "y":
-                    vy = where * MAX_VEL / 50
-                case "a":
-                    vz = where * MAX_VEL
-            # Safety guards
-            if is_close(mr.front) and vx > 0:
-                vx = 0
-            if is_close(mr.back) and vx < 0:
-                vx = 0
-            if is_close(mr.left) and vy > 0:
-                vy = 0
-            if is_close(mr.right) and vy < 0:
-                vy = 0
-            if is_close(mr.up) and vz > 0:
-                vz = 0
-            if is_close(mr.down) and vz < 0:
-                vz = 0
-            print(f"moving {vx=} {vy=} {vz=}")
-            mc.start_linear_motion(vx, vy, vz)
+            gpio.output(STATUS_PIN, True)
+            while gpio.input(SWITCH_PIN) == True:
+                await asyncio.sleep(0)
+                try:
+                    what, where = queue.get_nowait()
+                except asyncio.QueueEmpty:
+                    mc.stop()
+                    continue
+                queue.task_done()
+                match what:
+                    case "x":
+                        vx = where * MAX_VEL / 50
+                    case "y":
+                        vy = where * MAX_VEL / 50
+                    case "a":
+                        vz = where * MAX_VEL
+                # Safety guards
+                if is_close(mr.front) and vx > 0:
+                    vx = 0
+                if is_close(mr.back) and vx < 0:
+                    vx = 0
+                if is_close(mr.left) and vy > 0:
+                    vy = 0
+                if is_close(mr.right) and vy < 0:
+                    vy = 0
+                if is_close(mr.up) and vz > 0:
+                    vz = 0
+                if is_close(mr.down) and vz < 0:
+                    vz = 0
+                print(f"moving {vx=} {vy=} {vz=}")
+                mc.start_linear_motion(vx, vy, vz)
+            print("kill switch")
+            gpio.output(STATUS_PIN, False)
+            mc.stop()
+            mc.land()
+            while gpio.input(SWITCH_PIN) == False:
+                asyncio.sleep(0.01)
+            print("taking off again")
+            mc.take_off()
     finally:
-        mc.stop()
+        gpio.output(STATUS_PIN, False)
 
 async def main(scf, mr, mc, port):
-    await asyncio.gather(fly(scf, mr, mc), readserial(port))
+    try:
+        gpio.setmode(gpio.BCM)
+        gpio.setup(STATUS_PIN, gpio.OUT)
+        gpio.setup(SWITCH_PIN, gpio.IN)
+        await asyncio.gather(fly(scf, mr, mc), readserial(port))
+    finally:
+        gpio.cleanup()
 
 if __name__ == '__main__':
     cflib.crtp.init_drivers()
