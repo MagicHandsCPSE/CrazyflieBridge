@@ -41,7 +41,7 @@ async def readserial(port):
     finally:
         port.close()
 
-async def fly(scf, mr, mc):
+async def fly(scf, mc):
     vx, vy, vz = 0, 0, 0
     MAX_VEL = 0.5
     try:
@@ -82,12 +82,12 @@ async def fly(scf, mr, mc):
         gpio.output(STATUS_PIN, False)
 
 
-async def main(scf, mr, mc, port):
+async def main(scf, mc, port):
     try:
         gpio.setmode(gpio.BCM)
         gpio.setup(STATUS_PIN, gpio.OUT)
         gpio.setup(SWITCH_PIN, gpio.IN)
-        await asyncio.gather(fly(scf, mr, mc), readserial(port))
+        await asyncio.gather(fly(scf, mc), readserial(port))
     finally:
         gpio.cleanup()
 
@@ -101,4 +101,4 @@ if __name__ == '__main__':
         print("SyncCrazyflie ok")
         with MotionCommander(scf, default_height=DEFAULT_HEIGHT) as motion_commander:
             print("MotionCommander ok")
-            asyncio.run(main(scf, multiranger, motion_commander, port))
+            asyncio.run(main(scf, motion_commander, port))
