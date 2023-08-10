@@ -69,7 +69,10 @@ async def fly(scf, mr, mc):
                     case "y":
                         vy = where * MAX_VEL / -50  # Y coordinate is backwards
                     case "a":
-                        vz = where * -MAX_VEL  # Positive Z is down?!?
+                        if where != 0:
+                            vz = where * -MAX_VEL  # Positive Z is down?!?
+                        else:
+                            vz *= 0.85  # Decay slowly so it moves faster
                 # Safety guards
                 if is_close(mr.front) and vx > 0:
                     print(" --- obstacle in front")
