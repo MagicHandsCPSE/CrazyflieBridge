@@ -7,7 +7,6 @@ import cflib.crtp
 from cflib.crazyflie import Crazyflie
 from cflib.crazyflie.syncCrazyflie import SyncCrazyflie
 from cflib.positioning.motion_commander import MotionCommander
-from cflib.utils.multiranger import Multiranger
 from cflib.utils import uri_helper
 
 import serial
@@ -67,6 +66,8 @@ async def fly(scf, mr, mc):
                             vz = where * -MAX_VEL  # Positive Z is down?!?
                         else:
                             vz *= 0.85  # Decay slowly so it moves easy
+                            if abs(vz) < 0.05:
+                                vz = 0
                 print(f"moving {vx=} {vy=} {vz=}")
                 mc.start_linear_motion(vx, vy, vz)
             print("kill switch")
@@ -98,8 +99,6 @@ if __name__ == '__main__':
     port = serial.Serial("/dev/serial0", 115200, timeout=0.1, exclusive=True)
     with SyncCrazyflie(URI, cf=Crazyflie(rw_cache='./cache')) as scf:
         print("SyncCrazyflie ok")
-        with Multiranger(scf) as multiranger:
-            print("Multiranger ok")
-            with MotionCommander(scf, default_height=DEFAULT_HEIGHT) as motion_commander:
-                print("MotionCommander ok")
-                asyncio.run(main(scf, multiranger, motion_commander, port))
+        with MotionCommander(scf, default_height=DEFAULT_HEIGHT) as motion_commander:
+            print("MotionCommander ok")
+            asyncio.run(main(scf, multiranger, motion_commander, port))
