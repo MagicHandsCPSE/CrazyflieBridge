@@ -23,11 +23,6 @@ DEFAULT_HEIGHT = 0.2
 STATUS_PIN = 21
 SWITCH_PIN = 20
 
-
-def is_close(reading):
-    return reading is None or reading < 0.3  # 30 cm = about 1 foot
-
-
 queue = asyncio.Queue(16)
 
 
@@ -43,8 +38,7 @@ async def readserial(port):
             try:
                 queue.put_nowait((what, int(where)))
             except asyncio.QueueFull:
-                queue.get_nowait()
-                queue.task_done()
+                pass
     finally:
         port.close()
 
@@ -56,7 +50,7 @@ async def fly(scf, mr, mc):
             await asyncio.sleep(0)
             gpio.output(STATUS_PIN, True)
             while gpio.input(SWITCH_PIN) == True:
-                await asyncio.sleep(0.1)
+                await asyncio.sleep(0)
                 try:
                     what, where = queue.get_nowait()
                 except asyncio.QueueEmpty:
@@ -72,26 +66,7 @@ async def fly(scf, mr, mc):
                         if where != 0:
                             vz = where * -MAX_VEL  # Positive Z is down?!?
                         else:
-                            vz *= 0.85  # Decay slowly so it moves faster
-                # Safety guards
-                if is_close(mr.front) and vx > 0:
-                    print(" --- obstacle in front")
-                    vx = 0
-                if is_close(mr.back) and vx < 0:
-                    print(" --- obstacle in back")
-                    vx = 0
-                if is_close(mr.left) and vy > 0:
-                    print(" --- obstacle to left")
-                    vy = 0
-                if is_close(mr.right) and vy < 0:
-                    print(" --- obstacle to right")
-                    vy = 0
-                if is_close(mr.up) and vz > 0:
-                    print(" --- obstacle above")
-                    vz = 0
-                if is_close(mr.down) and vz < 0:
-                    print(" --- obstacle below")
-                    vz = 0
+                            vz *= 0.85  # Decay slowly so it moves easy
                 print(f"moving {vx=} {vy=} {vz=}")
                 mc.start_linear_motion(vx, vy, vz)
             print("kill switch")
